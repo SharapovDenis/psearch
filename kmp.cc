@@ -35,12 +35,8 @@ struct distr {
 struct argums {
     vector<string> file_path;
     struct kmp aut;
-};
-
-struct use_mutex_tag {
     pthread_mutex_t mutex;
 };
-
 
 void walk_recursive(string const &dirname, vector<struct sfi> &ret) {
 
@@ -164,9 +160,9 @@ int check_text(struct kmp aut, const char *text) {
     return 0;
 }
 
-void file_reading(struct argums *args) {
+void *file_reading(void *arg) {
 
-    //struct argums *args = (struct argums *) arg; 
+    struct argums *args = (struct argums *) arg; 
 
     int i;
 
@@ -180,7 +176,9 @@ void file_reading(struct argums *args) {
         FILE *fp = fopen(args->file_path[i].c_str(), "r");
 
         if (!fp) {
+            pthread_mutex_lock(&(args->mutex));
             fprintf(stderr, "Error opening file '%s'\n", args->file_path[i].c_str());
+            pthread_mutex_unlock(&(args->mutex));
             continue;
         }
 
@@ -193,7 +191,9 @@ void file_reading(struct argums *args) {
             flag = check_text(args->aut, line_buf);
 
             if(flag) {
+                pthread_mutex_lock(&(args->mutex));
                 printf("file: %s line: %d text: %s", args->file_path[i].c_str(), line_count, line_buf);
+                pthread_mutex_unlock(&(args->mutex));
             }
 
             line_count++;
@@ -207,6 +207,7 @@ void file_reading(struct argums *args) {
 
     }
 
+    return NULL;
 }
 
 bool comp_descending(const struct sfi &arg1, const struct sfi &arg2) {
@@ -326,28 +327,26 @@ int main(int argc, char** argv) {
 
     to_thrds = distribute(dirs, THREADS);
 
-    printf("#1 HERE!\n");
+    pthread_t *threads = (pthread_t *) malloc(THREADS * sizeof(pthread_t));
+    pthread_mutex_t mutex_main;
 
-    //pthread_t *threads = (pthread_t *) malloc(THREADS * sizeof(pthread_t));
-    struct argums *argums = (struct argums *) calloc(THREADS, THREADS * sizeof(struct argums));
+    vector<struct argums> args (THREADS);
 
-    printf("#2 HERE!\n");
+    pthread_mutex_init(&mutex_main, NULL);
 
     for(i = 0; i < THREADS; ++i) {
-        argums[i].file_path = to_thrds[i].s_files;
-        argums[i].aut = aut;
-        printf("#3 HERE!\n");
-        //pthread_create(threads+i, NULL, file_reading, argums+i);
-        file_reading(&argums[i]);
-
+        args[i].file_path = to_thrds[i].s_files;
+        args[i].aut = aut;
+        args[i].mutex = mutex_main;
+        pthread_create(threads+i, NULL, file_reading, &args[i]);
     }
 
     for(i = 0; i < THREADS; ++i) {
-        //pthread_join(threads[i], NULL);
+        pthread_join(threads[i], NULL);
     }
 
-    //free(threads);
-    free(argums);
+    pthread_mutex_destroy(&mutex_main);
+    free(threads);
 
     return 0;
 }
