@@ -27,14 +27,10 @@ struct kmp {
     size_t lenght;
 };
 
-struct distr {
-    vector<string> s_files;
-    off_t files_size;
-};
-
 struct argums {
     vector<string> file_path;
     struct kmp aut;
+    off_t files_size;
     pthread_mutex_t mutex;
 };
 
@@ -214,20 +210,20 @@ bool comp_descending(const struct sfi &arg1, const struct sfi &arg2) {
     return arg1.file_size > arg2.file_size;
 }
 
-vector<struct distr> distribute(vector<struct sfi> dirs, int n) {
+vector<struct argums> distribute(vector<struct sfi> dirs, int n) {
 
-    vector<struct distr> thrds (n);
+    vector<struct argums> args (n);
     vector<int> f_sizes (n, 0);
     int pos, i;
 
     for(i = 0; i < dirs.size(); ++i) {
         pos = min_element(f_sizes.begin(), f_sizes.end()) - f_sizes.begin();
         f_sizes[pos] += dirs[i].file_size;
-        thrds[pos].s_files.push_back(dirs[i].file_name);
-        thrds[pos].files_size += dirs[i].file_size;
+        args[pos].file_path.push_back(dirs[i].file_name);
+        args[pos].files_size += dirs[i].file_size;
     }
 
-    return thrds;
+    return args;
 }
 
 void find_keys(int argc, char **argv, vector<int> *positions, string *drct) {
@@ -300,7 +296,6 @@ int main(int argc, char** argv) {
     }
 
     vector<struct sfi> dirs;
-    vector<struct distr> to_thrds;
     string pattern;
     string searching_drct = "";
     int THREADS = 1, dir_flag = 0, flag = -1;
@@ -322,20 +317,18 @@ int main(int argc, char** argv) {
     }
 
     struct kmp aut = create_kmp(pattern);
+    vector<struct argums> args;
 
     sort(dirs.begin(), dirs.end(), comp_descending);
 
-    to_thrds = distribute(dirs, THREADS);
+    args = distribute(dirs, THREADS);
 
     pthread_t *threads = (pthread_t *) malloc(THREADS * sizeof(pthread_t));
     pthread_mutex_t mutex_main;
 
-    vector<struct argums> args (THREADS);
-
     pthread_mutex_init(&mutex_main, NULL);
 
     for(i = 0; i < THREADS; ++i) {
-        args[i].file_path = to_thrds[i].s_files;
         args[i].aut = aut;
         args[i].mutex = mutex_main;
         pthread_create(threads+i, NULL, file_reading, &args[i]);
@@ -353,6 +346,4 @@ int main(int argc, char** argv) {
 
 // переписать бяку с ret_aut
 // придумать новый символ вместо #
-// внимание на оператор if в функции check_text!!!
-// file_reading --- непонятно что с переносом строки (делать или нет);
 // исправить argc < 2 в main (должен искать в текущей директории).
