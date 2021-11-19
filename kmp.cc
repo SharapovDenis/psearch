@@ -130,14 +130,13 @@ int check_text(struct kmp aut, const char *text) {
 
     for(i = 0; i < strlen(text); ++i) {
 
-        if(text[i] < 65 && text[i] > 127) {
-            printf("text[%d] symbol not found!\n", i);
+        if(text[i] < 65 || text[i] > 127) {
             j = 0;
             continue;
         }
 
         if(j > aut.lenght) {
-            printf("j problem!\n");
+            printf("j=%d problem!: '%s'\n", j, text);
             return 0;
         }
 
@@ -253,3 +252,4 @@ int main(int argc, char** argv) {
 // внимание на оператор if в функции check_text!!!
 // distribute: смотри main, там коммент
 // check_text: какая-то проблема с j
+// ввести постоянные для алфавита
