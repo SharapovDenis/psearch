@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -8,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <pthread.h>
 
 using namespace std;
 
@@ -28,6 +30,11 @@ struct kmp {
 struct distr {
     vector<string> s_files;
     off_t files_size;
+};
+
+struct args {
+    string file_path;
+    struct kmp aut;
 };
 
 void walk_recursive(string const &dirname, vector<struct sfi> &ret) {
@@ -126,7 +133,6 @@ struct kmp create_kmp(string s) {
 
 }
 
-// внимание на оператор if!!!
 
 int check_text(struct kmp aut, const char *text) {
 
@@ -163,6 +169,7 @@ void file_reading(string file_path, struct kmp aut) {
 
     if (!fp) {
         fprintf(stderr, "Error opening file '%s'\n", file_path.c_str());
+        return ;
     }
 
     line_size = getline(&line_buf, &line_buf_size, fp);
@@ -208,28 +215,27 @@ vector<struct distr> distribute(vector<struct sfi> dirs, int n) {
     return thrds;
 }
 
+void find_keys(int argc, char **argv, vector<int> *positions, string *drct) {
 
-// тут принимать указатель на positions и string directory
-vector<int> find_keys(int argc, char **argv) {
-
-    vector<int> positions;
     int i;
 
     for(i = 0; i < argc; ++i) {
         if(argv[i][0] == '-') {
-            positions.push_back(i);
+            positions->push_back(i);
         }
-    }
-
-    return positions;   
+        if(i > 1 && argv[i][0] != '-') {
+            *drct = string(argv[i]);
+        }
+    }   
 }
 
-int check_keys(int argc, char **argv, int *thr_amnt, int *dir_flag) {
+int parsing(int argc, char **argv, int *thr_amnt, int *dir_flag, string *drct) {
 
     int i, pos_size;
+    char* ptr;
     vector<int> pos;
 
-    pos = find_keys(argc, argv);
+    find_keys(argc, argv, &pos, drct);
     pos_size = pos.size();
 
     if(pos_size > 2) {
@@ -244,13 +250,14 @@ int check_keys(int argc, char **argv, int *thr_amnt, int *dir_flag) {
             return -1;
         }
 
-        if(argv[pos[i]][1] == 't' && strlen(argv[pos[i]]) != 3) {
+        if(argv[pos[i]][1] == 't' && strlen(argv[pos[i]]) < 3) {
             fprintf(stderr, "syntax error!\n");
             return -1;
         }
 
         if(argv[pos[i]][1] == 't') {
-            *thr_amnt = argv[pos[i]][2] - '0';
+            ptr = &argv[pos[i]][1];
+            *thr_amnt = atoi(ptr + 1);
         }
 
         if(argv[pos[i]][1] == 'n') {
@@ -258,27 +265,19 @@ int check_keys(int argc, char **argv, int *thr_amnt, int *dir_flag) {
         }
     }
 
-    return 0;
-}
-
-int parsing(int argc, char **argv) {
-
-    int i, thr_amnt = 1, dir_flag = 0, flag = -1;
-
-    flag = check_keys(argc, argv, &thr_amnt, &dir_flag);
-
-    if(flag == -1) {
-        fprintf(stderr, "exiting!\n");
-        return -1;
-    }
-
-
-
+    if(*dir_flag == 1) {
+        *drct = "./";
+    } 
 
     return 0;
 }
 
 int main(int argc, char** argv) {
+
+    if(argc < 2) {
+        fprintf(stderr, "too few arguments!\n");
+        return 0;
+    }
 
     if(argc > 4) {
         fprintf(stderr, "too many arguments!\n");
@@ -288,35 +287,41 @@ int main(int argc, char** argv) {
     vector<struct sfi> dirs;
     vector<struct distr> to_thrds;
     string pattern;
-    int THREADS;
+    string searching_drct = "";
+    int THREADS = 1, dir_flag = 0, flag = -1;
 
     pattern = string(argv[1]);
 
-    parsing(argc, argv);
+    flag = parsing(argc, argv, &THREADS, &dir_flag, &searching_drct);
 
-    dirs = walk("/usr/include");
-
-    if(dirs.size() == 0) {
-        printf("can't find directory!\n");
+    if(flag == -1) {
         return 0;
     }
 
-    sort(dirs.begin(), dirs.end(), comp_descending);
+    dirs = walk(searching_drct);
 
-    to_thrds = distribute(dirs, 4);
-
-    for(int i = 0; i < dirs.size(); ++i) {
-        printf("dir[%d]='%s'\n", i, dirs[i].file_name.c_str());
-        printf("dir[%d]='%ld'\n", i, dirs[i].file_size);
-        printf("dir[%d]='%d'\n", i, dirs[i].file_type);
+    if(dirs.size() == 0) {
+        fprintf(stderr, "can't find directory!\n");
+        return 0;
     }
 
     struct kmp aut = create_kmp(pattern);
+
+    sort(dirs.begin(), dirs.end(), comp_descending);
+
+    to_thrds = distribute(dirs, THREADS);
+
+    //pthread_t *threads = (pthread_t *) malloc(THREADS * sizeof(pthread_t));
+    //struct args *argums = (struct args *) malloc(THREADS * sizeof(struct args));
+
 
     for(int i = 0; i < dirs.size(); ++i) {
         file_reading(dirs[i].file_name, aut);
     }
 
+
+    //free(threads);
+    //free(argums);
 
     return 0;
 }
