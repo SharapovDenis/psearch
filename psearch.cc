@@ -15,8 +15,12 @@ using namespace std;
 
 #define ALPHABET_START  65
 #define ALPHABET_END    127
+#define END_MARKER      '#'
 
-struct sfi {
+struct sfs {
+    /* 
+        searching files system
+    */
     string file_name;
     off_t file_size;
     unsigned char file_type;
@@ -28,13 +32,13 @@ struct kmp {
 };
 
 struct argums {
-    vector<string> file_path;
-    struct kmp aut;
-    off_t files_size;
-    pthread_mutex_t mutex;
+    vector<string> files_path;  /* Paths to each file */
+    struct kmp aut;             /* KMP */
+    off_t files_size;           /* Summary size of files */
+    pthread_mutex_t mutex;      /* Mutex */
 };
 
-void walk_recursive(string const &dirname, vector<struct sfi> &ret) {
+void walk_recursive(string const &dirname, vector<struct sfs> &ret) {
 
     /*
 
@@ -43,7 +47,7 @@ void walk_recursive(string const &dirname, vector<struct sfi> &ret) {
     */
 
     DIR *dir = opendir(dirname.c_str());
-    struct sfi local;
+    struct sfs local;
     struct stat statbuf;
 
 
@@ -65,7 +69,7 @@ void walk_recursive(string const &dirname, vector<struct sfi> &ret) {
     closedir(dir);
 }
 
-vector<struct sfi> walk(string const &dirname) {
+vector<struct sfs> walk(string const &dirname) {
 
     /*
 
@@ -73,7 +77,7 @@ vector<struct sfi> walk(string const &dirname) {
 
     */
 
-    vector<struct sfi> ret;
+    vector<struct sfs> ret;
     walk_recursive(dirname, ret);
 
     // удаляем директории из вектора
@@ -88,51 +92,52 @@ vector<struct sfi> walk(string const &dirname) {
 }
 
 vector<int> prefix_function (string s) {
-	int n = (int) s.length();
+
+	int i, j, n = (int) s.length();
 	vector<int> pi (n);
 
-	for (int i = 1; i < n; ++i) {
-		int j = pi[i-1];
-		while (j > 0 && s[i] != s[j])
-			j = pi[j - 1];
-		if (s[i] == s[j])  ++j;
+	for (i = 1; i < n; ++i) {
+		j = pi[i - 1];
+		while (j > 0 && s[i] != s[j]) {
+            j = pi[j - 1];
+        }
+		if (s[i] == s[j]){
+            ++j;
+        }
 		pi[i] = j;
 	}
 	return pi;
 }
 
-// переписать бяку с ret_aut
-// придумать новый символ вместо #
-
 struct kmp create_kmp(string s) {
-
-    const int alphabet = ALPHABET_END; // мощность алфавита символов, обычно меньше
  
-    s += '#';
-    int n = (int) s.length();
+    s += END_MARKER;
+    int i, n = (int) s.length();
+    char c;
 
-    struct kmp ret_aut;
-    vector<int> pi = prefix_function (s);
-    vector < vector<int> > aut (n, vector<int> (alphabet+1));
-    for (int i=0; i < n; ++i) {
-        for (char c = ALPHABET_START; c < alphabet; ++c) {
-            if (i > 0 && c != s[i])
-                aut[i][c] = aut[pi[i-1]][c];
+    struct kmp aut;
+    vector<int> pi = prefix_function(s);
+    vector<vector<int>> aut_init (n, vector<int> (ALPHABET_END + 1));
+
+    aut.table = aut_init;
+
+    for(i = 0; i < n; ++i) {
+        for(c = ALPHABET_START; c < ALPHABET_END; ++c) {
+            if(i > 0 && c != s[i])
+                aut.table[i][c] = aut.table[pi[i-1]][c];
             else
-                aut[i][c] = i + (c == s[i]);
+                aut.table[i][c] = i + (c == s[i]);
         }
     }
 
-    ret_aut.table = aut;
-    ret_aut.lenght = s.size() - 1;
+    aut.lenght = s.size() - 1;
 
-    return ret_aut;
-
+    return aut;
 }
 
 int check_text(struct kmp aut, const char *text) {
 
-    int j = 0, i = 0;
+    int i, j = 0;
 
     for(i = 0; i < strlen(text); ++i) {
 
@@ -159,21 +164,20 @@ int check_text(struct kmp aut, const char *text) {
 void *file_reading(void *arg) {
 
     struct argums *args = (struct argums *) arg; 
-
     int i;
 
-    for(i = 0; i < args->file_path.size(); ++i) {
+    for(i = 0; i < args->files_path.size(); ++i) {
 
         char *line_buf = NULL;
         size_t line_buf_size = 0;
         int line_count = 1;
         ssize_t line_size;
 
-        FILE *fp = fopen(args->file_path[i].c_str(), "r");
+        FILE *fp = fopen(args->files_path[i].c_str(), "r");
 
         if (!fp) {
             pthread_mutex_lock(&(args->mutex));
-            fprintf(stderr, "Error opening file '%s'\n", args->file_path[i].c_str());
+            fprintf(stderr, "Error opening file '%s'\n", args->files_path[i].c_str());
             pthread_mutex_unlock(&(args->mutex));
             continue;
         }
@@ -188,7 +192,7 @@ void *file_reading(void *arg) {
 
             if(flag) {
                 pthread_mutex_lock(&(args->mutex));
-                printf("file: %s line: %d text: %s", args->file_path[i].c_str(), line_count, line_buf);
+                printf("file: %s line: %d text: %s", args->files_path[i].c_str(), line_count, line_buf);
                 pthread_mutex_unlock(&(args->mutex));
             }
 
@@ -206,11 +210,11 @@ void *file_reading(void *arg) {
     return NULL;
 }
 
-bool comp_descending(const struct sfi &arg1, const struct sfi &arg2) {
+bool comp_descending(const struct sfs &arg1, const struct sfs &arg2) {
     return arg1.file_size > arg2.file_size;
 }
 
-vector<struct argums> distribute(vector<struct sfi> dirs, int n) {
+vector<struct argums> distribute(vector<struct sfs> dirs, int n) {
 
     vector<struct argums> args (n);
     vector<int> f_sizes (n, 0);
@@ -219,7 +223,7 @@ vector<struct argums> distribute(vector<struct sfi> dirs, int n) {
     for(i = 0; i < dirs.size(); ++i) {
         pos = min_element(f_sizes.begin(), f_sizes.end()) - f_sizes.begin();
         f_sizes[pos] += dirs[i].file_size;
-        args[pos].file_path.push_back(dirs[i].file_name);
+        args[pos].files_path.push_back(dirs[i].file_name);
         args[pos].files_size += dirs[i].file_size;
     }
 
@@ -295,7 +299,7 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    vector<struct sfi> dirs;
+    vector<struct sfs> dirs;
     string pattern;
     string searching_drct = "";
     int THREADS = 1, dir_flag = 0, flag = -1;
@@ -344,6 +348,4 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-// переписать бяку с ret_aut
 // придумать новый символ вместо #
-// исправить argc < 2 в main (должен искать в текущей директории).
