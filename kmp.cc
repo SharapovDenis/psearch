@@ -32,10 +32,15 @@ struct distr {
     off_t files_size;
 };
 
-struct args {
-    string file_path;
+struct argums {
+    vector<string> file_path;
     struct kmp aut;
 };
+
+struct use_mutex_tag {
+    pthread_mutex_t mutex;
+};
+
 
 void walk_recursive(string const &dirname, vector<struct sfi> &ret) {
 
@@ -116,9 +121,9 @@ struct kmp create_kmp(string s) {
 
     struct kmp ret_aut;
     vector<int> pi = prefix_function (s);
-    vector < vector<int> > aut (n, vector<int> (alphabet));
-    for (int i=0; i<n; ++i) {
-        for (char c = ALPHABET_START; c<alphabet; ++c) {
+    vector < vector<int> > aut (n, vector<int> (alphabet+1));
+    for (int i=0; i < n; ++i) {
+        for (char c = ALPHABET_START; c < alphabet; ++c) {
             if (i > 0 && c != s[i])
                 aut[i][c] = aut[pi[i-1]][c];
             else
@@ -132,7 +137,6 @@ struct kmp create_kmp(string s) {
     return ret_aut;
 
 }
-
 
 int check_text(struct kmp aut, const char *text) {
 
@@ -151,47 +155,57 @@ int check_text(struct kmp aut, const char *text) {
         }
 
         j = aut.table[j][text[i]];
+
         if(j == aut.lenght) {
             return j;
         }
+        
     }
     return 0;
 }
 
-void file_reading(string file_path, struct kmp aut) {
+void file_reading(struct argums *args) {
 
-    char *line_buf = NULL;
-    size_t line_buf_size = 0;
-    int line_count = 1;
-    ssize_t line_size;
+    //struct argums *args = (struct argums *) arg; 
 
-    FILE *fp = fopen(file_path.c_str(), "r");
+    int i;
 
-    if (!fp) {
-        fprintf(stderr, "Error opening file '%s'\n", file_path.c_str());
-        return ;
-    }
+    for(i = 0; i < args->file_path.size(); ++i) {
 
-    line_size = getline(&line_buf, &line_buf_size, fp);
+        char *line_buf = NULL;
+        size_t line_buf_size = 0;
+        int line_count = 1;
+        ssize_t line_size;
 
-    int flag = 0;
+        FILE *fp = fopen(args->file_path[i].c_str(), "r");
 
-    while(line_size >= 0) {
-
-        flag = check_text(aut, line_buf);
-
-        if(flag) {
-            printf("file: %s line: %d text: %s", file_path.c_str(), line_count, line_buf);
+        if (!fp) {
+            fprintf(stderr, "Error opening file '%s'\n", args->file_path[i].c_str());
+            continue;
         }
 
-        line_count++;
         line_size = getline(&line_buf, &line_buf_size, fp);
 
-    }
+        int flag = 0;
 
-    free(line_buf);
-    line_buf = NULL;
-    fclose(fp); 
+        while(line_size >= 0) {
+
+            flag = check_text(args->aut, line_buf);
+
+            if(flag) {
+                printf("file: %s line: %d text: %s", args->file_path[i].c_str(), line_count, line_buf);
+            }
+
+            line_count++;
+            line_size = getline(&line_buf, &line_buf_size, fp);
+
+        }
+
+        free(line_buf);
+        line_buf = NULL;
+        fclose(fp); 
+
+    }
 
 }
 
@@ -289,6 +303,7 @@ int main(int argc, char** argv) {
     string pattern;
     string searching_drct = "";
     int THREADS = 1, dir_flag = 0, flag = -1;
+    int i;
 
     pattern = string(argv[1]);
 
@@ -311,17 +326,28 @@ int main(int argc, char** argv) {
 
     to_thrds = distribute(dirs, THREADS);
 
+    printf("#1 HERE!\n");
+
     //pthread_t *threads = (pthread_t *) malloc(THREADS * sizeof(pthread_t));
-    //struct args *argums = (struct args *) malloc(THREADS * sizeof(struct args));
+    struct argums *argums = (struct argums *) calloc(THREADS, THREADS * sizeof(struct argums));
 
+    printf("#2 HERE!\n");
 
-    for(int i = 0; i < dirs.size(); ++i) {
-        file_reading(dirs[i].file_name, aut);
+    for(i = 0; i < THREADS; ++i) {
+        argums[i].file_path = to_thrds[i].s_files;
+        argums[i].aut = aut;
+        printf("#3 HERE!\n");
+        //pthread_create(threads+i, NULL, file_reading, argums+i);
+        file_reading(&argums[i]);
+
     }
 
+    for(i = 0; i < THREADS; ++i) {
+        //pthread_join(threads[i], NULL);
+    }
 
     //free(threads);
-    //free(argums);
+    free(argums);
 
     return 0;
 }
@@ -330,3 +356,4 @@ int main(int argc, char** argv) {
 // придумать новый символ вместо #
 // внимание на оператор if в функции check_text!!!
 // file_reading --- непонятно что с переносом строки (делать или нет);
+// исправить argc < 2 в main (должен искать в текущей директории).
