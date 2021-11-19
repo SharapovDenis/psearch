@@ -9,8 +9,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-
 using namespace std;
+
+#define ALPHABET_START  65
+#define ALPHABET_END    127
 
 struct sfi {
     string file_name;
@@ -21,6 +23,11 @@ struct sfi {
 struct kmp {
     vector<vector<int>> table;
     size_t lenght;
+};
+
+struct distr {
+    vector<string> s_files;
+    off_t files_size;
 };
 
 void walk_recursive(string const &dirname, vector<struct sfi> &ret) {
@@ -54,7 +61,7 @@ void walk_recursive(string const &dirname, vector<struct sfi> &ret) {
     closedir(dir);
 }
 
- vector<struct sfi> walk(string const &dirname) {
+vector<struct sfi> walk(string const &dirname) {
 
     /*
 
@@ -95,7 +102,7 @@ vector<int> prefix_function (string s) {
 
 struct kmp create_kmp(string s) {
 
-    const int alphabet = 127; // мощность алфавита символов, обычно меньше
+    const int alphabet = ALPHABET_END; // мощность алфавита символов, обычно меньше
  
     s += '#';
     int n = (int) s.length();
@@ -104,15 +111,12 @@ struct kmp create_kmp(string s) {
     vector<int> pi = prefix_function (s);
     vector < vector<int> > aut (n, vector<int> (alphabet));
     for (int i=0; i<n; ++i) {
-        for (char c = 65; c<alphabet; ++c) {
+        for (char c = ALPHABET_START; c<alphabet; ++c) {
             if (i > 0 && c != s[i])
                 aut[i][c] = aut[pi[i-1]][c];
             else
                 aut[i][c] = i + (c == s[i]);
-
-            printf("%d ", aut[i][c]);
         }
-        printf("\n");
     }
 
     ret_aut.table = aut;
@@ -130,14 +134,14 @@ int check_text(struct kmp aut, const char *text) {
 
     for(i = 0; i < strlen(text); ++i) {
 
-        if(text[i] < 65 || text[i] > 127) {
+        if(text[i] < ALPHABET_START || text[i] > ALPHABET_END) {
             j = 0;
             continue;
         }
 
         if(j > aut.lenght) {
-            printf("j=%d problem!: '%s'\n", j, text);
-            return 0;
+            j = 0;
+            continue;
         }
 
         j = aut.table[j][text[i]];
@@ -158,14 +162,14 @@ void file_reading(string file_path, struct kmp aut) {
     FILE *fp = fopen(file_path.c_str(), "r");
 
     if (!fp) {
-    fprintf(stderr, "Error opening file '%s'\n", file_path.c_str());
+        fprintf(stderr, "Error opening file '%s'\n", file_path.c_str());
     }
 
     line_size = getline(&line_buf, &line_buf_size, fp);
 
     int flag = 0;
 
-    while (line_size >= 0){
+    while(line_size >= 0) {
 
         flag = check_text(aut, line_buf);
 
@@ -188,21 +192,20 @@ bool comp_descending(const struct sfi &arg1, const struct sfi &arg2) {
     return arg1.file_size > arg2.file_size;
 }
 
-void distribute(vector<struct sfi> dirs, int n) {
+vector<struct distr> distribute(vector<struct sfi> dirs, int n) {
 
-    int distr[n] = {0};
-
-    int *min_pos, i;
+    vector<struct distr> thrds (n);
+    vector<int> f_sizes (n, 0);
+    int pos, i;
 
     for(i = 0; i < dirs.size(); ++i) {
-        min_pos = min_element(distr, distr + n);
-        *min_pos += dirs[i].file_size;
+        pos = min_element(f_sizes.begin(), f_sizes.end()) - f_sizes.begin();
+        f_sizes[pos] += dirs[i].file_size;
+        thrds[pos].s_files.push_back(dirs[i].file_name);
+        thrds[pos].files_size += dirs[i].file_size;
     }
 
-    for(i = 0; i < n; ++i) {
-        printf("distr[%d]=%d\n", i, distr[i]);
-    }
-
+    return thrds;
 }
 
 int main(int argc, char** argv) {
@@ -211,6 +214,7 @@ int main(int argc, char** argv) {
 
     vector<int> pi = prefix_function(s);
     vector<struct sfi> dirs;
+    vector<struct distr> to_thrds;
 
     dirs = walk("/home/shdenis/Desktop/prog/C/psearch");
 
@@ -221,13 +225,7 @@ int main(int argc, char** argv) {
 
     sort(dirs.begin(), dirs.end(), comp_descending);
 
-    // в этой функции запихивать имена файлов вместе с суммарным размером
-    distribute(dirs, 4);
-
-
-    for(int i = 0; i < pi.size(); ++i) {
-        printf("p[%d]=%d\n", i, pi[i]);
-    }
+    to_thrds = distribute(dirs, 4);
 
     for(int i = 0; i < dirs.size(); ++i) {
         printf("dir[%d]='%s'\n", i, dirs[i].file_name.c_str());
@@ -241,8 +239,6 @@ int main(int argc, char** argv) {
         file_reading(dirs[i].file_name, aut);
     }
 
-    //printf("flag=%d\n", flag);
-
 
     return 0;
 }
@@ -250,6 +246,4 @@ int main(int argc, char** argv) {
 // переписать бяку с ret_aut
 // придумать новый символ вместо #
 // внимание на оператор if в функции check_text!!!
-// distribute: смотри main, там коммент
-// check_text: какая-то проблема с j
-// ввести постоянные для алфавита
+// file_reading --- непонятно что с переносом строки (делать или нет);
