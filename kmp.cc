@@ -208,15 +208,93 @@ vector<struct distr> distribute(vector<struct sfi> dirs, int n) {
     return thrds;
 }
 
+
+// тут принимать указатель на positions и string directory
+vector<int> find_keys(int argc, char **argv) {
+
+    vector<int> positions;
+    int i;
+
+    for(i = 0; i < argc; ++i) {
+        if(argv[i][0] == '-') {
+            positions.push_back(i);
+        }
+    }
+
+    return positions;   
+}
+
+int check_keys(int argc, char **argv, int *thr_amnt, int *dir_flag) {
+
+    int i, pos_size;
+    vector<int> pos;
+
+    pos = find_keys(argc, argv);
+    pos_size = pos.size();
+
+    if(pos_size > 2) {
+        fprintf(stderr, "too many keys!\n");
+        return -1;
+    }
+
+    for(i = 0; i < pos.size(); ++i) {
+
+        if(strlen(argv[pos[i]]) < 2) {
+            fprintf(stderr, "syntax error!\n");
+            return -1;
+        }
+
+        if(argv[pos[i]][1] == 't' && strlen(argv[pos[i]]) != 3) {
+            fprintf(stderr, "syntax error!\n");
+            return -1;
+        }
+
+        if(argv[pos[i]][1] == 't') {
+            *thr_amnt = argv[pos[i]][2] - '0';
+        }
+
+        if(argv[pos[i]][1] == 'n') {
+            *dir_flag = 1;
+        }
+    }
+
+    return 0;
+}
+
+int parsing(int argc, char **argv) {
+
+    int i, thr_amnt = 1, dir_flag = 0, flag = -1;
+
+    flag = check_keys(argc, argv, &thr_amnt, &dir_flag);
+
+    if(flag == -1) {
+        fprintf(stderr, "exiting!\n");
+        return -1;
+    }
+
+
+
+
+    return 0;
+}
+
 int main(int argc, char** argv) {
 
-    string s = argc > 1 ? string(argv[1]) : "abbab";
+    if(argc > 4) {
+        fprintf(stderr, "too many arguments!\n");
+        return 0;
+    }
 
-    vector<int> pi = prefix_function(s);
     vector<struct sfi> dirs;
     vector<struct distr> to_thrds;
+    string pattern;
+    int THREADS;
 
-    dirs = walk("/home/shdenis/Desktop/prog/C/psearch");
+    pattern = string(argv[1]);
+
+    parsing(argc, argv);
+
+    dirs = walk("/usr/include");
 
     if(dirs.size() == 0) {
         printf("can't find directory!\n");
@@ -233,7 +311,7 @@ int main(int argc, char** argv) {
         printf("dir[%d]='%d'\n", i, dirs[i].file_type);
     }
 
-    struct kmp aut = create_kmp(s);
+    struct kmp aut = create_kmp(pattern);
 
     for(int i = 0; i < dirs.size(); ++i) {
         file_reading(dirs[i].file_name, aut);
