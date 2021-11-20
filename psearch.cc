@@ -15,7 +15,7 @@ using namespace std;
 
 #define ALPHABET_START  32      /* space */
 #define ALPHABET_END    125     /* '}' */    
-#define END_MARKER      '~'
+#define END_MARKER      '~'     /* (char) 126 */
 
 struct sfs {
     /* 
@@ -93,6 +93,12 @@ vector<struct sfs> walk(string const &dirname) {
 
 vector<int> prefix_function (string s) {
 
+    /*
+
+        Calculates the prefixes of a string s.
+
+    */
+
 	int i, j, n = (int) s.length();
 	vector<int> pi (n);
 
@@ -111,6 +117,12 @@ vector<int> prefix_function (string s) {
 
 struct kmp create_kmp(string s) {
  
+    /*
+
+        Creates a KMP-machine for string s using prefix_function().
+
+    */
+    
     s += END_MARKER;
     int i, n = (int) s.length();
     char c;
@@ -137,6 +149,14 @@ struct kmp create_kmp(string s) {
 
 int check_text(struct kmp aut, const char *text) {
 
+    /*
+
+        Launches the KMP-machine that calculates transitions (delta-function)
+        and returns value > 0 when the first entry of the pattern has been reached.
+        If it is not, returns 0. 
+
+    */
+
     int i, j = 0;
 
     for(i = 0; i < strlen(text); ++i) {
@@ -162,6 +182,13 @@ int check_text(struct kmp aut, const char *text) {
 }
 
 void *file_reading(void *arg) {
+
+    /*
+
+        Reads files from arg and then launches KMP-machine 
+        with the check_text() function.
+
+    */
 
     struct argums *args = (struct argums *) arg; 
     int i;
@@ -216,6 +243,12 @@ bool comp_descending(const struct sfs &arg1, const struct sfs &arg2) {
 
 vector<struct argums> distribute(vector<struct sfs> dirs, int n) {
 
+    /*
+
+        Distributes files by the files size into n groups.
+
+    */
+
     vector<struct argums> args (n);
     vector<int> f_sizes (n, 0);
     int pos, i;
@@ -232,6 +265,12 @@ vector<struct argums> distribute(vector<struct sfs> dirs, int n) {
 
 void find_keys(int argc, char **argv, vector<int> *positions, string *drct) {
 
+    /*
+
+        Finds entries of keys in argv.    
+
+    */
+
     int i;
 
     for(i = 0; i < argc; ++i) {
@@ -245,6 +284,12 @@ void find_keys(int argc, char **argv, vector<int> *positions, string *drct) {
 }
 
 int parsing(int argc, char **argv, int *thr_amnt, int *dir_flag, string *drct) {
+
+    /*
+
+        Process of parsing argv line.
+
+    */
 
     int i, pos_size;
     char* ptr;
@@ -347,5 +392,3 @@ int main(int argc, char** argv) {
 
     return 0;
 }
-
-// придумать новый символ вместо #
