@@ -13,9 +13,9 @@
 
 using namespace std;
 
-#define ALPHABET_START  65
-#define ALPHABET_END    127
-#define END_MARKER      '#'
+#define ALPHABET_START  32      /* space */
+#define ALPHABET_END    125     /* '}' */    
+#define END_MARKER      '~'
 
 struct sfs {
     /* 
