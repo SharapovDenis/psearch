@@ -1,25 +1,36 @@
-Функция psearch [pattern] [-keys] [directory]
+# psearch
 
-Функция psearch ищет вхождения шаблона pattern в directory и глужбе.
+Функция `psearch [pattern] [-keys] [directory]` ищет вхождения шаблона `pattern` в `directory` и глубже.
 
-Ключи keys:
+### Ключи keys:
+
+<pre>
 
 -t#     запустить поиск в # потоков
 
 -n      поиск только в текущей директории
+</pre>
 
-Компиляция:
+## Компиляция:
 
-make [compiling]
+с помощью команды make:
+
+    make compiling
 
 или вручную:
 
-c++ psearch.cc -lpthread -o psearch
+    c++ psearch.cc -lpthread -o psearch
 
-Версии:
+## Версии:
 
-1.0.0 --- маркер конца строки '#' и уменьшенный алфавит
+==1.0.0== 
 
-1.0.1 --- маркер конца строки '~' и расширенный алфавит
+* маркер конца строки '#' и уменьшенный алфавит.
 
-1.0.2 --- code styling
+==1.0.1== 
+
+* маркер конца строки '~' и расширенный алфавит.
+
+==1.0.2== 
+
+* code styling.
