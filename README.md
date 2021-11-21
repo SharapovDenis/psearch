@@ -25,8 +25,8 @@ vector<int> prefix_function (string s) {
 
     */
 
-	int i, j, n = (int) s.length();
-	vector<int> pi (n);
+    int i, j, n = (int) s.length();
+    vector<int> pi (n);
 
     for (i = 1; i < n; ++i) {
         j = pi[i - 1];
