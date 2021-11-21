@@ -116,6 +116,10 @@ Input:  time ./psearch pop -t8 /usr/include
 Output: real 0m0.294s user 0m1.928s sys 0m0.037s
 </pre>
 
+## Литература:
+
+* https://e-maxx.ru/algo/prefix_function
+
 ## Версии:
 
 ==1.0.0== 
