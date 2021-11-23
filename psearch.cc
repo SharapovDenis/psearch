@@ -51,7 +51,6 @@ void walk_recursive(string const &dirname, vector<struct sfs> &ret) {
 
 
     if (dir == nullptr) {
-        perror(dirname.c_str());
         return;
     }
     for (dirent *de = readdir(dir); de != nullptr; de = readdir(dir)) {
