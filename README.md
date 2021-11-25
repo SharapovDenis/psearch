@@ -1,14 +1,55 @@
 # psearch
 
-Команда `psearch [pattern] [-keys] [directory]` ищет вхождения шаблона `pattern` в `directory` и глубже.
+Команда `./psearch [-keys] pattern [-keys] directory` ищет вхождения шаблона `pattern` в файлах директории `directory` и глубже и печатает их в стандартный вывод.
 
-Ключи keys:
+## Ключи keys:
 
 <pre>
 
--t#     запустить поиск в # потоков
+-t#     запустить поиск в # потоков;
 
--n      поиск только в текущей директории
+-n      запустить поиск только в указанной директории.
+</pre>
+
+## Компиляция:
+
+с помощью команды make:
+
+    make compiling
+
+или вручную:
+
+    c++ psearch.cc -lpthread -o psearch
+
+## Примеры выполнения:
+
+Время выполнения программы на сравнительно небольшом наборе файлов:
+
+<pre>
+Input:  time ./psearch -t1 -n  int /usr/include
+Output: real 0m0.062s user 0m0.053s sys 0m0.000s
+
+Input:  time ./psearch -t4 -n  int /usr/include
+Output: real 0m0.050s user 0m0.089s sys	0m0.021s
+</pre>
+
+Время выполнения программы на сравнительно большом наборе файлов: 
+
+<pre>
+Input:  time ./psearch pop -t1 /usr/include
+Output: real 0m0.858s user 0m0.834s sys 0m0.024s
+
+Input:  time ./psearch pop -t2 /usr/include
+Output: real 0m0.482s user 0m0.913s sys 0m0.024s
+
+Input:  time ./psearch pop -t3 /usr/include
+Output: real 0m0.392s user 0m1.066s sys	0m0.020s
+
+Input:  time ./psearch pop -t4 /usr/include
+Output: real 0m0.322s user 0m1.194s sys 0m0.016s
+
+Input:  time ./psearch pop -t8 /usr/include
+Output: real 0m0.294s user 0m1.928s sys 0m0.037s
 </pre>
 
 ## Теория:
@@ -87,35 +128,6 @@ struct kmp create_kmp(string s) {
 }
 ```
 
-## Компиляция:
-
-с помощью команды make:
-
-    make compiling
-
-или вручную:
-
-    c++ psearch.cc -lpthread -o psearch
-
-## Примеры выполнения:
-
-<pre>
-Input:  time ./psearch pop -t1 /usr/include
-Output: real 0m0.858s user 0m0.834s sys 0m0.024s
-
-Input:  time ./psearch pop -t2 /usr/include
-Output: real 0m0.482s user 0m0.913s sys 0m0.024s
-
-Input:  time ./psearch pop -t3 /usr/include
-Output: real 0m0.392s user 0m1.066s sys	0m0.020s
-
-Input:  time ./psearch pop -t4 /usr/include
-Output: real 0m0.322s user 0m1.194s sys 0m0.016s
-
-Input:  time ./psearch pop -t8 /usr/include
-Output: real 0m0.294s user 0m1.928s sys 0m0.037s
-</pre>
-
 ## Литература:
 
 * https://e-maxx.ru/algo/prefix_function
@@ -124,16 +136,25 @@ Output: real 0m0.294s user 0m1.928s sys 0m0.037s
 
 ==1.0.0== 
 
-* маркер конца строки '#' и уменьшенный алфавит.
+* Маркер конца строки '#' и уменьшенный алфавит.
 
 ==1.0.1== 
 
-* маркер конца строки '~' и расширенный алфавит.
+* Маркер конца строки '~' и расширенный алфавит.
 
 ==1.0.2== 
 
-* code styling.
+* Code styling.
 
 ==1.0.3==
 
-* исправлена функция walk(). Теперь она не выводит ошибки на экран.
+* Исправлена функция `walk()`. Теперь она не выводит ошибки на экран.
+
+==1.0.4==
+
+* Изменена функция `find_keys()`. Теперь она присваивает `string pattern` пустую строку в случае синтаксической ошибки.
+Также добавлен вектор `vector<char *>`, содержащий входные данные, за исключением флагов.
+* Изменена функция `parsing()`. Теперь она обрабатывает флаги в произвольном порядке.
+* Исправлены функции `walk()` и `walk_recursive()`. Добавлен новый аргумент-флаг, отвечающий за рекурсивный поиск.
+* Изменено default значение флага `n_flag`. Теперь значение 1 соответствует рекурсивному поиску директорий. 
+* Добавлено новое правило порядока ввода агрументов: `./psearch [-keys] pattern [-keys] directory`.

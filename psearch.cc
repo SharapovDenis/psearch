@@ -12,9 +12,9 @@
 
 using namespace std;
 
-#define ALPHABET_START  32      /* space */
-#define ALPHABET_END    125     /* '}' */    
-#define END_MARKER      '~'     /* (char) 126 */
+#define ALPHABET_START  32      /* space        */
+#define ALPHABET_END    125     /* '}'          */    
+#define END_MARKER      '~'     /* (char) 126   */
 
 struct sfs {
     /* 
@@ -37,7 +37,7 @@ struct argums {
     pthread_mutex_t mutex;      /* Mutex */
 };
 
-void walk_recursive(string const &dirname, vector<struct sfs> &ret) {
+void walk_recursive(string const &dirname, vector<struct sfs> &ret, int n_flag) {
 
     /*
 
@@ -49,7 +49,6 @@ void walk_recursive(string const &dirname, vector<struct sfs> &ret) {
     struct sfs local;
     struct stat statbuf;
 
-
     if (dir == nullptr) {
         return;
     }
@@ -59,15 +58,17 @@ void walk_recursive(string const &dirname, vector<struct sfs> &ret) {
         stat(local.file_name.c_str(), &statbuf);
         local.file_size = statbuf.st_size;
         local.file_type = de->d_type;
-        ret.push_back(local); // добавление в вектор
-        if (de->d_type == DT_DIR) {
-            walk_recursive(dirname + "/" + de->d_name, ret);
+        if(de->d_type != DT_DIR) {
+            ret.push_back(local); // добавление в вектор
+        }
+        if(de->d_type == DT_DIR && n_flag == 1) {
+            walk_recursive(dirname + "/" + de->d_name, ret, n_flag);
         }
     }
     closedir(dir);
 }
 
-vector<struct sfs> walk(string const &dirname) {
+vector<struct sfs> walk(string const &dirname, int n_flag) {
 
     /*
 
@@ -76,15 +77,7 @@ vector<struct sfs> walk(string const &dirname) {
     */
 
     vector<struct sfs> ret;
-    walk_recursive(dirname, ret);
-
-    // удаляем директории из вектора
-    for(int i = 0; i < ret.size(); ++i) {
-        if(ret[i].file_type == DT_DIR) {
-            ret.erase(ret.begin() + i);
-            --i;
-        }
-    }
+    walk_recursive(dirname, ret, n_flag);
 
     return ret;
 }
@@ -243,7 +236,7 @@ vector<struct argums> distribute(vector<struct sfs> dirs, int n) {
 
     /*
 
-        Distributes files by the files size into n groups.
+        Distributes files by the size into n groups.
 
     */
 
@@ -261,27 +254,40 @@ vector<struct argums> distribute(vector<struct sfs> dirs, int n) {
     return args;
 }
 
-void find_keys(int argc, char **argv, vector<int> *positions, string *drct) {
+void find_keys(int argc, char **argv, string *pattern, vector<int> *positions, string *drct) {
 
     /*
 
-        Finds entries of keys in argv.    
+        Finds key's entries in argv.    
 
     */
 
     int i;
+    vector<char *> args;
 
     for(i = 0; i < argc; ++i) {
-        if(argv[i][0] == '-') {
+        if(argv[i][0] != '-') {
+            args.push_back(argv[i]);
+        } else {
             positions->push_back(i);
         }
-        if(i > 1 && argv[i][0] != '-') {
-            *drct = string(argv[i]);
-        }
-    }   
+    }
+
+    if(args.size() < 2) {
+        *pattern = "";
+    } else {
+        *pattern = args[1];
+    }
+
+    if(args.size() < 3) {
+        *drct = "./";
+    } else {
+        *drct = args[2];
+    }
+
 }
 
-int parsing(int argc, char **argv, int *thr_amnt, int *dir_flag, string *drct) {
+int parsing(int argc, char **argv, string *pattern, string *drct, int *thr_amnt, int *n_flag) {
 
     /*
 
@@ -293,7 +299,7 @@ int parsing(int argc, char **argv, int *thr_amnt, int *dir_flag, string *drct) {
     char* ptr;
     vector<int> pos;
 
-    find_keys(argc, argv, &pos, drct);
+    find_keys(argc, argv, pattern, &pos, drct);
     pos_size = pos.size();
 
     if(pos_size > 2) {
@@ -319,13 +325,9 @@ int parsing(int argc, char **argv, int *thr_amnt, int *dir_flag, string *drct) {
         }
 
         if(argv[pos[i]][1] == 'n') {
-            *dir_flag = 1;
+            *n_flag = 0;
         }
     }
-
-    if(*dir_flag == 1) {
-        *drct = "./";
-    } 
 
     return 0;
 }
@@ -337,26 +339,29 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    if(argc > 4) {
+    if(argc > 5) {
         fprintf(stderr, "too many arguments!\n");
         return 0;
     }
 
     vector<struct sfs> dirs;
-    string pattern;
+    string pattern = "";
     string searching_drct = "";
-    int THREADS = 1, dir_flag = 0, flag = -1;
+    int THREADS = 1, n_flag = 1, flag = -1;
     int i;
 
-    pattern = string(argv[1]);
-
-    flag = parsing(argc, argv, &THREADS, &dir_flag, &searching_drct);
+    flag = parsing(argc, argv, &pattern, &searching_drct, &THREADS, &n_flag);
 
     if(flag == -1) {
         return 0;
     }
 
-    dirs = walk(searching_drct);
+    if(pattern == "") {
+        fprintf(stderr, "can't recognize the pattern\n");
+        return 0;
+    }
+
+    dirs = walk(searching_drct, n_flag);
 
     if(dirs.size() == 0) {
         fprintf(stderr, "can't find directory!\n");
